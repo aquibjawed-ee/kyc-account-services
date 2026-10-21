@@ -1,0 +1,72 @@
+# Defaults are the compose-profile values. Credentials/addresses come from the environment.
+server:
+  port: 8082
+  tomcat:
+    threads:
+      max: 50          # explicit HTTP worker bound (test profile: 20)
+
+spring:
+  application:
+    name: account-verification-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kyc_verification}
+    username: ${DB_USERNAME:kyc}
+    password: ${DB_PASSWORD:kyc_local}   # local-compose default only; override in any real environment
+    hikari:
+      maximum-pool-size: 10
+  flyway:
+    enabled: true
+  task:
+    scheduling:
+      thread-name-prefix: kyc-sched-
+      pool:
+        size: 3        # due-verdict poller + outbox relay; DB/Kafka-send work only
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    consumer:
+      group-id: account-verification-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: never
+
+kyc:
+  topics:
+    request: kyc.request.v1
+    ack: kyc.ack.v1
+    verdict: kyc.verdict.v1
+  review:
+    delay-min: PT1H
+    delay-max: PT2H
+    poll-interval: PT5S
+    poll-batch-size: 50
+  outbox:
+    relay-interval: PT0.5S
+    batch-size: 50
+    claim-lease: PT30S
+    send-timeout: PT5S
+    age-alert-threshold: PT5M   # exported for alert intent only
+  identity-provider:
+    base-url: ${IDENTITY_PROVIDER_BASE_URL:http://localhost:9999}   # unused under the compose profile (in-process fake)
+    connect-timeout: PT2S
+    read-timeout: PT5S
+    overall-deadline: PT4S   # < read-timeout (5s), so the deadline fires before the per-call timeout; enforced at startup
+  retry:
+    attempts: 4        # => 3 retry topics (+ dead-letter topic)
+    delay-ms: 1000
+    max-delay-ms: 30000
+  concurrency:
+    main: 3
+    retry: 1

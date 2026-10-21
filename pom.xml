@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.5</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.example.kyc</groupId>
+  <artifactId>kyc-account-services</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>kyc-account-services</name>
+
+  <modules>
+    <module>account-creation-service</module>
+    <module>account-verification-service</module>
+  </modules>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <wiremock.version>3.9.2</wiremock.version>
+    <zonky.version>2.0.7</zonky.version>
+    <zonky.pg.version>16.4.0</zonky.pg.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Pins the embedded PostgreSQL binaries to major version 16. Tests need no Docker daemon. -->
+      <dependency>
+        <groupId>io.zonky.test.postgres</groupId>
+        <artifactId>embedded-postgres-binaries-bom</artifactId>
+        <version>${zonky.pg.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.zonky.test</groupId>
+        <artifactId>embedded-postgres</artifactId>
+        <version>${zonky.version}</version>
+      </dependency>
+      <!-- Apple Silicon: without this Zonky falls back to the x86_64 build under emulation
+           ("No native binaries supporting ARM architecture found"), which needs Rosetta and runs slower. -->
+      <dependency>
+        <groupId>io.zonky.test.postgres</groupId>
+        <artifactId>embedded-postgres-binaries-darwin-arm64v8</artifactId>
+        <version>${zonky.pg.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.wiremock</groupId>
+        <artifactId>wiremock-standalone</artifactId>
+        <version>${wiremock.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>

@@ -1,0 +1,23 @@
+# Compressed timings: the whole suite runs in minutes. DB/Kafka addresses are injected by Testcontainers.
+server:
+  tomcat:
+    threads:
+      max: 20
+
+spring:
+  kafka:
+    listener:
+      concurrency: 1
+
+kyc:
+  sla:
+    window: PT2S
+    sweep-interval: PT0.2S
+  outbox:
+    relay-interval: PT0.05S
+    batch-size: 50
+    claim-lease: PT5S
+    send-timeout: PT2S
+    age-alert-threshold: PT5S
+  consumer:
+    retry-backoff: PT0.05S

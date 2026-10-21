@@ -1,0 +1,27 @@
+# Pipeline scaffold for kyc-account-services (new service). Walking skeleton: build + test both modules with the
+# same command the harness build gate uses. Integration tests run PostgreSQL 16 (Zonky embedded binaries) and
+# Kafka (spring-kafka-test) in-JVM, so no Docker daemon or service containers are needed.
+stages:
+  - test
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+cache:
+  paths:
+    - .m2/repository
+
+test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-21
+  script:
+    - cd services/kyc-account-services
+    - mvn -B test
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - services/kyc-account-services/*/target/surefire-reports/TEST-*.xml
+  rules:
+    - changes:
+        - services/kyc-account-services/**/*

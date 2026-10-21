@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: Account verification service (read-only)
+  version: 1.0.0
+servers:
+  - url: http://localhost:8082
+paths:
+  /api/v1/reviews/{applicationId}:
+    get:
+      summary: Read the review record for an application. planned outcome is never exposed.
+      parameters:
+        - { name: applicationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The review record
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviewId: { type: string, format: uuid }
+                  applicationId: { type: string, format: uuid }
+                  status: { type: string, enum: [MANUAL_REVIEW_STARTED, MANUAL_REVIEW_FAILED, MANUAL_REVIEW_PASSED] }
+                  reason: { type: string, nullable: true }
+                  verdictDueAt: { type: string, format: date-time, nullable: true }
+                  verdictPublishedAt: { type: string, format: date-time, nullable: true }
+                  createdAt: { type: string, format: date-time }
+        '404':
+          description: code REVIEW_NOT_FOUND
+          content:
+            application/problem+json:
+              schema: { type: object, properties: { code: { type: string } } }

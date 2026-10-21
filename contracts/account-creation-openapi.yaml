@@ -1,0 +1,158 @@
+openapi: 3.0.3
+info:
+  title: Account creation service
+  version: 1.0.0
+servers:
+  - url: http://localhost:8081
+paths:
+  /api/v1/accounts:
+    post:
+      summary: Create an account application (applicant, nominee, guarantor). Returns with kycStatus STARTED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAccountRequest' }
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Application' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: ACTIVE_APPLICATION_EXISTS (carries existingApplicationId)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    get:
+      summary: List live applications
+      parameters:
+        - { name: kycStatus, in: query, schema: { $ref: '#/components/schemas/KycStatus' } }
+        - { name: slaBreached, in: query, schema: { type: boolean } }
+        - { name: page, in: query, schema: { type: integer, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        '200':
+          description: Page of applications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content: { type: array, items: { $ref: '#/components/schemas/Application' } }
+                  page: { type: integer }
+                  size: { type: integer }
+                  totalElements: { type: integer, format: int64 }
+                  totalPages: { type: integer }
+  /api/v1/accounts/{applicationId}:
+    parameters:
+      - { name: applicationId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      responses:
+        '200':
+          description: The application
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Application' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      summary: Update non-identity fields only. name, pan, aadhaar are rejected with IDENTITY_FIELD_IMMUTABLE.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatchAccountRequest' }
+      responses:
+        '200':
+          description: Updated application (KYC is never restarted)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Application' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+    delete:
+      summary: Soft delete. Verification is not notified.
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/Problem' }
+components:
+  responses:
+    Problem:
+      description: RFC 7807 problem; `code` is one of VALIDATION_FAILED, DUPLICATE_PAN_IN_APPLICATION, IDENTITY_FIELD_IMMUTABLE, ACTIVE_APPLICATION_EXISTS, APPLICATION_NOT_FOUND, CONCURRENT_MODIFICATION
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    KycStatus:
+      type: string
+      enum: [STARTED, IN_PROGRESS, MANUAL_REVIEW_PENDING, REVIEW_FAILED, KYC_DONE]
+    Problem:
+      type: object
+      required: [code]
+      properties:
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string }
+        existingApplicationId: { type: string, format: uuid }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+    Person:
+      type: object
+      required: [name, address, pan, aadhaar, parentsName, annualIncome, incomeSource]
+      properties:
+        name: { type: string, maxLength: 200 }
+        address: { type: string }
+        pan: { type: string, pattern: '^[A-Z]{5}[0-9]{4}[A-Z]$' }
+        aadhaar: { type: string, pattern: '^[2-9][0-9]{11}$', description: Must pass the Verhoeff checksum }
+        parentsName: { type: string, maxLength: 200 }
+        annualIncome: { type: number, minimum: 0 }
+        incomeSource: { type: string, maxLength: 100 }
+    PersonResponse:
+      allOf:
+        - $ref: '#/components/schemas/Person'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+    CreateAccountRequest:
+      type: object
+      required: [primary, nominee, guarantor]
+      properties:
+        primary: { $ref: '#/components/schemas/Person' }
+        nominee: { $ref: '#/components/schemas/Person' }
+        guarantor: { $ref: '#/components/schemas/Person' }
+    PersonPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        address: { type: string }
+        parentsName: { type: string, maxLength: 200 }
+        annualIncome: { type: number, minimum: 0 }
+        incomeSource: { type: string, maxLength: 100 }
+    PatchAccountRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        primary: { $ref: '#/components/schemas/PersonPatch' }
+        nominee: { $ref: '#/components/schemas/PersonPatch' }
+        guarantor: { $ref: '#/components/schemas/PersonPatch' }
+    Application:
+      type: object
+      properties:
+        applicationId: { type: string, format: uuid }
+        kycStatus: { $ref: '#/components/schemas/KycStatus' }
+        statusReason: { type: string, nullable: true }
+        slaBreachDetectedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        primary: { $ref: '#/components/schemas/PersonResponse' }
+        nominee: { $ref: '#/components/schemas/PersonResponse' }
+        guarantor: { $ref: '#/components/schemas/PersonResponse' }

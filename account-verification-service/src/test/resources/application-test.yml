@@ -1,0 +1,27 @@
+# Compressed timings so the suite runs in minutes. DB/Kafka/WireMock addresses are injected by the test base class.
+server:
+  tomcat:
+    threads:
+      max: 20
+
+kyc:
+  review:
+    delay-min: PT0.2S
+    delay-max: PT0.5S
+    poll-interval: PT0.1S
+  outbox:
+    relay-interval: PT0.05S
+    claim-lease: PT5S
+    send-timeout: PT2S
+    age-alert-threshold: PT5S
+  identity-provider:
+    connect-timeout: PT0.3S
+    read-timeout: PT1.5S   # > overall-deadline (1s) so the deadline path is reachable
+    overall-deadline: PT1S
+  retry:
+    attempts: 4
+    delay-ms: 10
+    max-delay-ms: 50
+  concurrency:
+    main: 1
+    retry: 1

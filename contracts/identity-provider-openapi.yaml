@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: Identity provider (ASSUMED contract; stubbed with WireMock in tests, in-process fake under compose)
+  version: 1.0.0
+paths:
+  /identity/v1/verify:
+    post:
+      summary: Verify one person's name/PAN/Aadhaar. 5xx or timeout = unavailable (retryable); 4xx = non-retryable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, pan, aadhaar]
+              properties:
+                name: { type: string }
+                pan: { type: string }
+                aadhaar: { type: string }
+      responses:
+        '200':
+          description: Match or mismatch
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [match]
+                properties:
+                  match: { type: boolean }
+                  reason: { type: string }

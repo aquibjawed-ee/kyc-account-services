@@ -1,0 +1,62 @@
+# Defaults are the compose-profile values. Credentials/addresses come from the environment.
+server:
+  port: 8081
+  tomcat:
+    threads:
+      max: 50          # explicit HTTP worker bound (test profile: 20)
+
+spring:
+  application:
+    name: account-creation-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kyc_creation}
+    username: ${DB_USERNAME:kyc}
+    password: ${DB_PASSWORD:kyc_local}   # local-compose default only; override in any real environment
+    hikari:
+      maximum-pool-size: 10
+  flyway:
+    enabled: true
+  task:
+    scheduling:
+      thread-name-prefix: kyc-sched-
+      pool:
+        size: 3        # relay + SLA sweep; DB/Kafka-send work only
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    consumer:
+      group-id: account-creation-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    listener:
+      concurrency: 3   # ack + verdict listeners (test profile: 1)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: never
+
+kyc:
+  topics:
+    request: kyc.request.v1
+    ack: kyc.ack.v1
+    verdict: kyc.verdict.v1
+  sla:
+    window: PT24H
+    sweep-interval: PT1M
+  outbox:
+    relay-interval: PT0.5S
+    batch-size: 50
+    claim-lease: PT30S
+    send-timeout: PT5S
+    age-alert-threshold: PT5M   # exported for alert intent only
+  consumer:
+    retry-backoff: PT1S

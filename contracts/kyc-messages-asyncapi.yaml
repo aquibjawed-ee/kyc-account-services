@@ -1,0 +1,64 @@
+asyncapi: 2.6.0
+info:
+  title: KYC messages
+  version: 1.0.0
+  description: >
+    JSON payloads, keyed by applicationId (string). Delivery is at-least-once; consumers dedupe on
+    (applicationId, message type). Ack and verdict order is NOT guaranteed. Versioning: an incompatible change
+    ships on a new topic name (…v2).
+channels:
+  kyc.request.v1:
+    description: creation → verification. Dead-letter topic kyc.request.v1-dlt; retry topics kyc.request.v1-retry-*.
+    subscribe:
+      message: { $ref: '#/components/messages/KycRequest' }
+  kyc.ack.v1:
+    description: verification → creation. Dead-letter topic kyc.ack.v1-dlt.
+    subscribe:
+      message: { $ref: '#/components/messages/KycAck' }
+  kyc.verdict.v1:
+    description: verification → creation. Dead-letter topic kyc.verdict.v1-dlt. Never sent for the deliberate no-reply subset.
+    subscribe:
+      message: { $ref: '#/components/messages/KycVerdict' }
+components:
+  messages:
+    KycRequest:
+      payload:
+        type: object
+        required: [messageId, applicationId, occurredAt, persons]
+        properties:
+          messageId: { type: string, format: uuid }
+          applicationId: { type: string, format: uuid }
+          occurredAt: { type: string, format: date-time }
+          persons:
+            type: array
+            minItems: 3
+            maxItems: 3
+            description: Data minimisation - only name, PAN and Aadhaar leave the creation service.
+            items:
+              type: object
+              required: [role, name, pan, aadhaar]
+              properties:
+                role: { type: string, enum: [PRIMARY, NOMINEE, GUARANTOR] }
+                name: { type: string }
+                pan: { type: string }
+                aadhaar: { type: string }
+    KycAck:
+      payload:
+        type: object
+        required: [messageId, applicationId, reviewId, occurredAt]
+        properties:
+          messageId: { type: string, format: uuid }
+          applicationId: { type: string, format: uuid }
+          reviewId: { type: string, format: uuid }
+          occurredAt: { type: string, format: date-time }
+    KycVerdict:
+      payload:
+        type: object
+        required: [messageId, applicationId, reviewId, outcome, reason, occurredAt]
+        properties:
+          messageId: { type: string, format: uuid }
+          applicationId: { type: string, format: uuid }
+          reviewId: { type: string, format: uuid }
+          outcome: { type: string, enum: [PASSED, FAILED] }
+          reason: { type: string }
+          occurredAt: { type: string, format: date-time }
