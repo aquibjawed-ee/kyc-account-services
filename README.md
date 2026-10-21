@@ -1,5 +1,20 @@
 # kyc-account-services
 
+## Documentation map
+
+| Document | Covers |
+|---|---|
+| [`account-creation-service/README.md`](account-creation-service/README.md) | The application API, the five-state KYC lifecycle, the transactional outbox, the SLA sweep, the data model |
+| [`account-verification-service/README.md`](account-verification-service/README.md) | The Kafka-driven review flow, parallel identity checks and the deadline, the durable review delay, the pass/fail/no-reply selector, the external provider |
+| [`e2e-tests/README.md`](e2e-tests/README.md) | Cross-service tests that drive both deployed services over real HTTP and Kafka |
+| [`contracts/`](contracts) | OpenAPI for both HTTP surfaces, AsyncAPI for the three message types, and the assumed identity-provider contract |
+
+Each service also serves live API docs once the stack is up:
+
+- Account creation: <http://localhost:8081/swagger-ui.html>
+- Account verification: <http://localhost:8082/swagger-ui.html>
+
+
 Two Spring Boot 3.3 / Java 21 apps in one Maven project. They talk **only over Kafka**.
 
 | Module | Port | Database | Owns |

@@ -20,6 +20,7 @@
   <modules>
     <module>account-creation-service</module>
     <module>account-verification-service</module>
+    <module>e2e-tests</module>
   </modules>
 
   <properties>
@@ -27,6 +28,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <wiremock.version>3.9.2</wiremock.version>
     <zonky.version>2.0.7</zonky.version>
+    <springdoc.version>2.6.0</springdoc.version>
     <zonky.pg.version>16.4.0</zonky.pg.version>
   </properties>
 
@@ -44,6 +46,12 @@
         <groupId>io.zonky.test</groupId>
         <artifactId>embedded-postgres</artifactId>
         <version>${zonky.version}</version>
+      </dependency>
+      <!-- OpenAPI 3 description + Swagger UI, generated from the controllers at runtime. -->
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>${springdoc.version}</version>
       </dependency>
       <!-- Apple Silicon: without this Zonky falls back to the x86_64 build under emulation
            ("No native binaries supporting ARM architecture found"), which needs Rosetta and runs slower. -->

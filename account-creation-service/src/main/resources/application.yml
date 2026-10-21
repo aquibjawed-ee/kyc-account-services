@@ -60,3 +60,12 @@ kyc:
     age-alert-threshold: PT5M   # exported for alert intent only
   consumer:
     retry-backoff: PT1S
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs        # machine-readable OpenAPI 3 description
+  swagger-ui:
+    path: /swagger-ui.html    # redirects to /swagger-ui/index.html
+    operationsSorter: method
+    tagsSorter: alpha
+    displayRequestDuration: true
