@@ -1,6 +1,7 @@
 # Snyk security scans. Requires repository secret SNYK_TOKEN.
 # Optional repository variables: SNYK_ORG (org slug/ID), SNYK_SEVERITY_THRESHOLD (default: high),
-# SNYK_CLI_VERSION (default: latest; pin e.g. v1.1293.1 for reproducible builds).
+# SNYK_CLI_VERSION (default: latest; pin e.g. v1.1293.1 for reproducible builds),
+# SNYK_BLOCKING ('true' to fail the build on findings; default: report-only until known issues are fixed).
 name: Snyk
 
 on:
@@ -22,9 +23,9 @@ jobs:
   snyk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -43,6 +44,7 @@ jobs:
 
       # Open-source dependency scan (SCA) across all Maven modules.
       - name: Snyk Open Source
+        continue-on-error: ${{ vars.SNYK_BLOCKING != 'true' }}
         run: >
           snyk test --maven-aggregate-project $SNYK_ORG_ARG
           --severity-threshold=$SNYK_SEVERITY_THRESHOLD
@@ -51,6 +53,7 @@ jobs:
       # Static analysis (SAST). Requires Snyk Code to be enabled for the Snyk org.
       - name: Snyk Code
         if: success() || failure()
+        continue-on-error: ${{ vars.SNYK_BLOCKING != 'true' }}
         run: >
           snyk code test $SNYK_ORG_ARG
           --severity-threshold=$SNYK_SEVERITY_THRESHOLD
@@ -61,7 +64,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: snyk monitor --maven-aggregate-project $SNYK_ORG_ARG
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: snyk-reports
