@@ -1,11 +1,19 @@
 # Pipeline scaffold for kyc-account-services (new service). Walking skeleton: build + test both modules with the
 # same command the harness build gate uses. Integration tests run PostgreSQL 16 (Zonky embedded binaries) and
 # Kafka (spring-kafka-test) in-JVM, so no Docker daemon or service containers are needed.
+#
+# Snyk scans (security stage) need a masked + protected CI/CD variable SNYK_TOKEN (Snyk API token or service-account
+# token). Optional: SNYK_ORG (org slug/ID to report into), SNYK_SEVERITY_THRESHOLD (default: high),
+# SNYK_CLI_VERSION (default: latest; pin e.g. v1.1293.1 for reproducible builds).
 stages:
   - test
+  - security
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  SERVICE_DIR: services/kyc-account-services
+  SNYK_SEVERITY_THRESHOLD: high
+  SNYK_CLI_VERSION: latest
 
 cache:
   paths:
@@ -15,7 +23,7 @@ test:
   stage: test
   image: maven:3.9-eclipse-temurin-21
   script:
-    - cd services/kyc-account-services
+    - cd $SERVICE_DIR
     - mvn -B test
   artifacts:
     when: always
@@ -24,4 +32,62 @@ test:
         - services/kyc-account-services/*/target/surefire-reports/TEST-*.xml
   rules:
     - changes:
+        - services/kyc-account-services/**/*
+
+.snyk:
+  stage: security
+  image: maven:3.9-eclipse-temurin-21
+  needs: []
+  before_script:
+    - |
+      if [ -z "$SNYK_TOKEN" ]; then
+        echo "SNYK_TOKEN is not set. Add it under Settings > CI/CD > Variables (masked, protected)." >&2
+        exit 1
+      fi
+    - curl -sSfL "https://downloads.snyk.io/cli/${SNYK_CLI_VERSION}/snyk-linux" -o /usr/local/bin/snyk
+    - chmod +x /usr/local/bin/snyk
+    - snyk --version
+    - export SNYK_ORG_ARG="${SNYK_ORG:+--org=$SNYK_ORG}"
+    - cd $SERVICE_DIR
+
+# Open-source dependency scan (SCA) across all Maven modules. Fails the job on issues >= threshold.
+snyk-open-source:
+  extends: .snyk
+  script:
+    - >
+      snyk test --maven-aggregate-project $SNYK_ORG_ARG
+      --severity-threshold=$SNYK_SEVERITY_THRESHOLD
+      --json-file-output=snyk-open-source.json
+  artifacts:
+    when: always
+    paths:
+      - services/kyc-account-services/snyk-open-source.json
+  rules:
+    - changes:
+        - services/kyc-account-services/**/*
+
+# Static analysis (SAST) of the Java source. Requires Snyk Code to be enabled for the Snyk org.
+snyk-code:
+  extends: .snyk
+  script:
+    - >
+      snyk code test $SNYK_ORG_ARG
+      --severity-threshold=$SNYK_SEVERITY_THRESHOLD
+      --json-file-output=snyk-code.json
+  artifacts:
+    when: always
+    paths:
+      - services/kyc-account-services/snyk-code.json
+  rules:
+    - changes:
+        - services/kyc-account-services/**/*
+
+# On the default branch, upload a dependency snapshot so Snyk keeps monitoring for newly disclosed vulnerabilities.
+snyk-monitor:
+  extends: .snyk
+  script:
+    - snyk monitor --maven-aggregate-project $SNYK_ORG_ARG
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
         - services/kyc-account-services/**/*
