@@ -1,0 +1,85 @@
+# Wiz security scans (wizcli). Requires repository secrets WIZ_CLIENT_ID and WIZ_CLIENT_SECRET from a Wiz service
+# account with the create:security_scans scope. Until both secrets are set (and on PRs from forks, which never receive
+# secrets) the scans are skipped with a warning instead of failing the build.
+# Optional repository variables: WIZ_POLICY (comma-separated Wiz policy names; default: the tenant's default policies),
+# WIZ_CLI_VERSION (default: latest; pin for reproducible builds),
+# WIZ_BLOCKING ('true' to fail the build on policy violations; default: report-only).
+name: Wiz
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiz-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
+  WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
+  WIZ_POLICY: ${{ vars.WIZ_POLICY }}
+  WIZ_CLI_VERSION: ${{ vars.WIZ_CLI_VERSION || 'latest' }}
+
+jobs:
+  # Source scan: vulnerable Maven dependencies and committed secrets, plus IaC misconfigurations in the Dockerfile and
+  # docker-compose.yml.
+  wiz-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - &install-wizcli
+        name: Install and authenticate wizcli
+        id: wizcli
+        run: |
+          if [ -z "$WIZ_CLIENT_ID" ] || [ -z "$WIZ_CLIENT_SECRET" ]; then
+            echo "::warning::WIZ_CLIENT_ID / WIZ_CLIENT_SECRET secrets are not set (Settings > Secrets and variables > Actions); skipping Wiz scans."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          curl -sSfL "https://downloads.wiz.io/wizcli/${WIZ_CLI_VERSION}/wizcli-linux-amd64" -o /usr/local/bin/wizcli
+          chmod +x /usr/local/bin/wizcli
+          wizcli version
+          wizcli auth --id "$WIZ_CLIENT_ID" --secret "$WIZ_CLIENT_SECRET"
+          echo "WIZ_POLICY_ARG=${WIZ_POLICY:+--policy=$WIZ_POLICY}" >> "$GITHUB_ENV"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wiz directory scan (dependencies + secrets)
+        if: steps.wizcli.outputs.enabled == 'true'
+        continue-on-error: ${{ vars.WIZ_BLOCKING != 'true' }}
+        run: wizcli dir scan --path . $WIZ_POLICY_ARG
+
+      - name: Wiz IaC scan (Dockerfile, docker-compose)
+        if: steps.wizcli.outputs.enabled == 'true' && (success() || failure())
+        continue-on-error: ${{ vars.WIZ_BLOCKING != 'true' }}
+        run: wizcli iac scan --path . $WIZ_POLICY_ARG
+
+  # Image scan: builds each service's runtime image with the repo Dockerfile and scans OS packages and the app jar.
+  wiz-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [account-creation-service, account-verification-service]
+    steps:
+      - uses: actions/checkout@v7
+
+      - *install-wizcli
+
+      - name: Build image
+        if: steps.wizcli.outputs.enabled == 'true'
+        run: docker build --build-arg MODULE=${{ matrix.module }} -t ${{ matrix.module }}:${{ github.sha }} .
+
+      - name: Wiz image scan
+        if: steps.wizcli.outputs.enabled == 'true'
+        continue-on-error: ${{ vars.WIZ_BLOCKING != 'true' }}
+        run: >
+          wizcli docker scan --image ${{ matrix.module }}:${{ github.sha }}
+          --dockerfile Dockerfile $WIZ_POLICY_ARG
