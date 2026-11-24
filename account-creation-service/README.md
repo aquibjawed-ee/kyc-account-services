@@ -171,6 +171,15 @@ Full interactive documentation is at **<http://localhost:8081/swagger-ui.html>**
 | `GET` | `/api/v1/accounts` | Paged; filter by `kycStatus` and `slaBreached=true`. |
 | `PATCH` | `/api/v1/accounts/{id}` | **Non-identity fields only** — see below. |
 | `DELETE` | `/api/v1/accounts/{id}` | Soft delete, `204`. |
+| `GET` | `/health/kafka` | Kafka producer health — see below. |
+
+### Kafka producer health
+
+`GET /health/kafka` returns `200 {"status":"UP"}` when the brokers the Kafka producer is configured to
+use answer a cluster-describe request, and `503 {"status":"DOWN"}` when they don't. It is an active
+probe (an `AdminClient` built from the producer's own config, so `spring.kafka.producer.*` overrides and
+security settings apply), not a read of cached producer state. Each call is bounded by
+`kyc.health.kafka-timeout` (default `PT2S`). `/actuator/health` is unchanged.
 
 ### Why update is restricted
 
@@ -230,6 +239,8 @@ and the 24 hour SLA testable in seconds.
 | `kyc.sla.sweep-interval` | `PT1M` | `KYC_SLA_SWEEP_INTERVAL` |
 | `kyc.outbox.relay-interval` | `PT0.5S` | — |
 | `kyc.outbox.claim-lease` | `PT30S` | — |
+| `kyc.outbox.relay-enabled` | `true` | — |
+| `kyc.health.kafka-timeout` | `PT2S` | — |
 | `spring.datasource.url` | local compose | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` |
 | `spring.kafka.bootstrap-servers` | `localhost:29092` | `KAFKA_BOOTSTRAP_SERVERS` |
 
@@ -248,6 +259,6 @@ mvn -B test                      # from the repository root; no Docker daemon ne
 ```
 
 Tests run PostgreSQL 16 (Zonky, in-process) and Kafka (`spring-kafka-test`, KRaft) inside the JVM.
-**90 tests** cover the state machine, validation, the SLA calculation, the outbox relay, idempotent
+**94 tests** cover the state machine, validation, the SLA calculation, the outbox relay, idempotent
 consumption, and the full round trip with this service's own test double standing in for
 verification. Cross-process behaviour is covered separately by [`e2e-tests`](../e2e-tests).

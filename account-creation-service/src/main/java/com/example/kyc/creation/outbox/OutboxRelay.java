@@ -11,12 +11,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** claim → (locks released) send → mark published. Never holds a DB lock across Kafka I/O. */
+/**
+ * claim → (locks released) send → mark published. Never holds a DB lock across Kafka I/O.
+ * Disabled with {@code kyc.outbox.relay-enabled=false} (on by default).
+ */
 @Component
+@ConditionalOnProperty(prefix = "kyc.outbox", name = "relay-enabled", havingValue = "true", matchIfMissing = true)
 public class OutboxRelay {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);
