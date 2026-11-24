@@ -79,6 +79,20 @@ paths:
       responses:
         '204': { description: Deleted }
         '404': { $ref: '#/components/responses/Problem' }
+  /health/kafka:
+    get:
+      summary: Kafka producer health. Actively probes the producer's brokers, bounded by kyc.health.kafka-timeout.
+      responses:
+        '200':
+          description: Producer brokers reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KafkaHealth' }
+        '503':
+          description: Producer brokers unreachable or did not answer within the timeout
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KafkaHealth' }
 components:
   responses:
     Problem:
@@ -87,6 +101,11 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
   schemas:
+    KafkaHealth:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [UP, DOWN] }
     KycStatus:
       type: string
       enum: [STARTED, IN_PROGRESS, MANUAL_REVIEW_PENDING, REVIEW_FAILED, KYC_DONE]

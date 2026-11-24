@@ -53,6 +53,7 @@ kyc:
     window: PT24H
     sweep-interval: PT1M
   outbox:
+    relay-enabled: true         # false stops this instance from claiming/relaying outbox rows
     relay-interval: PT0.5S
     batch-size: 50
     claim-lease: PT30S
@@ -60,6 +61,8 @@ kyc:
     age-alert-threshold: PT5M   # exported for alert intent only
   consumer:
     retry-backoff: PT1S
+  health:
+    kafka-timeout: PT2S         # bounds GET /health/kafka (broker probe); slower answers report 503
 
 springdoc:
   api-docs:
